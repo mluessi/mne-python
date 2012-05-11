@@ -811,8 +811,74 @@ def apply_inverse_raw(raw, inverse_operator, lambda2, dSPM=True,
     return stc
 
 
+class DelayedSourceEstimate(SourceEstimate):
+    def __init__(self, inv_kernel, sens_data, tmin, tstep, vertno,
+                 noise_norm=None, combine_xyz=True):
+
+        self.inv_kernel = inv_kernel
+        self.sens_data = sens_data
+        self.tmin = tmin
+        self.tstep = tstep
+        self.vertno = vertno
+        self.noise_norm = noise_norm
+        self.combine_xyz = combine_xyz
+
+        self.times = tmin + tstep * np.arange(sens_data.shape[1])
+
+    @property
+    def data(self):
+        """ Compute and return the source space data """
+        if self.sens_data.ndim == 2:
+            data = np.dot(self.inv_kernel, self.sens_data)
+
+            if self.combine_xyz:
+                data = combine_xyz(data)
+
+            if self.noise_norm is not None:
+                data *= self.noise_norm
+        elif self.sens_data.ndim == 3:
+            data = np.zeros((self.inv_kernel.shape[0], self.sens_data.shape[1],
+                             self.sens_data.shape[2]), dtype=self.sens_data.dtype)
+
+            for i in range(self.sens_data.shape[1]):
+                data[:, i, :] = np.dot(self.inv_kernel, self.sens_data[:, i, :])
+
+                if self.combine_xyz:
+                    data[:, i, :] = combine_xyz(data[:, i, :])
+
+                if self.noise_norm is not None:
+                    data[:, i, :] *= self.noise_norm
+        else:
+            raise ValueError('only up to 3D data is supported')
+
+        return data
+
+    def apply_linear_time_function(self, fun, *args, **kwargs):
+        self.sens_data = fun(self.sens_data, *args, **kwargs)
+
+    def crop(self, tmin=None, tmax=None):
+        """Restrict SourceEstimate to a time interval
+
+        Parameters
+        ----------
+        tmin : float or None
+            The first time point in seconds. It None the first present is used.
+        tmax : float or None
+            The last time point in seconds. It None the last present is used.
+        """
+        mask = np.ones(len(self.times), dtype=np.bool)
+        if tmin is not None:
+            mask = mask & (self.times >= tmin)
+        if tmax is not None:
+            mask = mask & (self.times <= tmax)
+        self.times = self.times[mask]
+        self.sens_data = self.sens_data[:, mask]
+        self.tmin = self.times[0]
+
+
 def apply_inverse_epochs(epochs, inverse_operator, lambda2, dSPM=True,
-                         label=None, nave=1, pick_normal=False):
+                         label=None, nave=1, pick_normal=False,
+                         delayed=False):
     """Apply inverse operator to Epochs
 
     Computes a L2-norm inverse solution on each epochs and returns
@@ -837,6 +903,12 @@ def apply_inverse_epochs(epochs, inverse_operator, lambda2, dSPM=True,
         If True, rather than pooling the orientations by taking the norm,
         only the radial component is kept. This is only implemented
         when working with loose orientations.
+    delayed: bool
+        If True, a list of DelayedSourceEstimate is returned. These are
+        SourceEstimates which contain the inverse operator, s.t. the
+        inverse computation can be computed at a later point. This saves
+        memory and is more efficient if, e.g., time-frequency decompositions
+        are computed in source space.
 
     Returns
     -------
@@ -867,16 +939,23 @@ def apply_inverse_epochs(epochs, inverse_operator, lambda2, dSPM=True,
 
     for k, e in enumerate(epochs):
         print "Processing epoch : %d" % (k + 1)
-        sol = np.dot(K, e[sel])  # apply imaging kernel
+        if not delayed:
+            sol = np.dot(K, e[sel])  # apply imaging kernel
 
-        if is_free_ori:
-            print 'combining the current components...',
-            sol = combine_xyz(sol)
+            if is_free_ori:
+                print 'combining the current components...',
+                sol = combine_xyz(sol)
 
-        if noise_norm is not None:
-            sol *= noise_norm
+            if noise_norm is not None:
+                sol *= noise_norm
 
-        stcs.append(_make_stc(sol, tmin, tstep, vertno))
+            stc = _make_stc(sol, tmin, tstep, vertno)
+        else:
+            sens_data = deepcopy(e[sel])
+            stc = DelayedSourceEstimate(K, sens_data, tmin, tstep, vertno,
+                    noise_norm=noise_norm, combine_xyz=is_free_ori)
+
+        stcs.append(stc)
 
     print '[done]'
 

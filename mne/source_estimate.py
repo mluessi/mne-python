@@ -320,11 +320,12 @@ class SourceEstimate(object):
         print '[done]'
 
     def __repr__(self):
-        s = "%d vertices" % sum([len(v) for v in self.vertno])
+        n_vert =  sum([len(v) for v in self.vertno])
+        s = "%d vertices" % n_vert
         s += ", tmin : %s (ms)" % (1e3 * self.tmin)
         s += ", tmax : %s (ms)" % (1e3 * self.times[-1])
         s += ", tstep : %s (ms)" % (1e3 * self.tstep)
-        s += ", data size : %s x %s" % self.data.shape
+        s += ", data size : %s x %s" % (n_vert, len(self.times))
         return "SourceEstimate (%s)" % s
 
     def crop(self, tmin=None, tmax=None):
