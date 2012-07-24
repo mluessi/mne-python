@@ -8,6 +8,43 @@ from .tree import make_dir_tree
 from .constants import FIFF
 
 
+def allopen(fname, *args, **kwargs):
+    ''' Generic file-like object open
+
+    If input ``fname`` already looks like a file, pass through.
+    If ``fname`` ends with recognizable compressed types, use python
+    libraries to open as file-like objects (read or write)
+    Otherwise, use standard ``open``.
+
+    Copied from dipy
+    '''
+    if hasattr(fname, 'write'):
+        return fname
+    if args:
+        mode = args[0]
+    elif 'mode' in kwargs:
+        mode = kwargs['mode']
+    else:
+        mode = 'rb'
+    if fname.endswith('.gz'):
+        if ('w' in mode and
+            len(args) < 2 and
+            not 'compresslevel' in kwargs):
+            kwargs['compresslevel'] = default_compresslevel
+        import gzip
+        opener = gzip.open
+    elif fname.endswith('.bz2'):
+        if ('w' in mode and
+            len(args) < 3 and
+            not 'compresslevel' in kwargs):
+            kwargs['compresslevel'] = default_compresslevel
+        import bz2
+        opener = bz2.BZ2File
+    else:
+        opener = open
+    return opener(fname, *args, **kwargs)
+
+
 def fiff_open(fname, verbose=False):
     """Open a FIF file.
 
@@ -32,7 +69,7 @@ def fiff_open(fname, verbose=False):
         list of nodes.
 
     """
-    fid = open(fname, "rb")  # Open in binary mode
+    fid = allopen(fname, "rb")  # Open in binary mode
 
     tag = read_tag_info(fid)
 
