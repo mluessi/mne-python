@@ -409,11 +409,6 @@ class _BaseSourceEstimate(object):
                                  'dimensions')
 
         if isinstance(vertices, list):
-            if not (len(vertices) == 2 or len(vertices) == 1) or \
-                    not all([isinstance(v, np.ndarray) for v in vertices]):
-                raise ValueError('Vertices, if a list, must contain one or '
-                                 'two numpy arrays')
-
             if any([np.any(np.diff(v.astype(int)) <= 0) for v in vertices]):
                 raise ValueError('Vertices must be ordered in increasing '
                                  'order.')
@@ -986,10 +981,6 @@ class SourceEstimate(_BaseSourceEstimate):
     @verbose
     def __init__(self, data, vertices=None, tmin=None, tstep=None,
                  subject=None, verbose=None):
-
-        if not (isinstance(vertices, list) and len(vertices) == 2):
-            raise ValueError('Vertices, if a list, must contain two '
-                             'numpy arrays')
 
         _BaseSourceEstimate.__init__(self, data, vertices=vertices, tmin=tmin,
                                      tstep=tstep, subject=subject,

@@ -972,14 +972,15 @@ def compute_depth_prior(G, gain_info, is_fixed_ori, exp=0.8, limit=10.0,
 def _stc_src_sel(src, stc):
     """ Select the vertex indices of a source space using a source estimate
     """
-    src_sel_lh = np.intersect1d(src[0]['vertno'], stc.vertno[0])
-    src_sel_lh = np.searchsorted(src[0]['vertno'], src_sel_lh)
+    pos = 0
+    src_sel = []
+    for src, vertno in zip(src, stc.vertno):
+        this_sel = np.intersect1d(src['vertno'], vertno)
+        this_sel = np.searchsorted(src['vertno'], this_sel) + pos
+        src_sel.append(this_sel)
+        pos += len(src['vertno'])
 
-    src_sel_rh = np.intersect1d(src[1]['vertno'], stc.vertno[1])
-    src_sel_rh = (np.searchsorted(src[1]['vertno'], src_sel_rh)
-                  + len(src[0]['vertno']))
-
-    src_sel = np.r_[src_sel_lh, src_sel_rh]
+    src_sel = np.concatenate(src_sel)
 
     return src_sel
 

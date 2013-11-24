@@ -77,12 +77,16 @@ def _make_sparse_stc(X, active_set, forward, tmin, tstep,
         active_idx = np.unique(active_idx // n_dip_per_pos)
 
     src = forward['src']
+    vertices = []
+    pos = 0
+    for src in forward['src']:
+        pos_end = pos + len(src['vertno'])
+        idx = active_idx[np.logical_and(pos <= active_idx, active_idx < pos_end)]\
+              - pos
+        this_vertno = src['vertno'][idx]
+        vertices.append(this_vertno)
+        pos = pos_end
 
-    n_lh_points = len(src[0]['vertno'])
-    lh_vertno = src[0]['vertno'][active_idx[active_idx < n_lh_points]]
-    rh_vertno = src[1]['vertno'][active_idx[active_idx >= n_lh_points]
-                                             - n_lh_points]
-    vertices = [lh_vertno, rh_vertno]
     stc = SourceEstimate(X, vertices=vertices, tmin=tmin, tstep=tstep)
     return stc
 
