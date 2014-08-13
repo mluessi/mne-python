@@ -669,7 +669,7 @@ def _assemble_kernel(inv, label, method, pick_ori, verbose=None):
         eigen_leads = eigen_leads[src_sel]
         source_cov = source_cov[src_sel]
 
-    if pick_ori == "normal":
+    if pick_ori in ['normal', 'tangential1', 'tangential2']:
         if not inv['source_ori'] == FIFF.FIFFV_MNE_FREE_ORI:
             raise ValueError('Picking normal orientation can only be done '
                              'with a free orientation inverse operator.')
@@ -679,9 +679,18 @@ def _assemble_kernel(inv, label, method, pick_ori, verbose=None):
             raise ValueError('Picking normal orientation can only be done '
                              'when working with loose orientations.')
 
-        # keep only the normal components
-        eigen_leads = eigen_leads[2::3]
-        source_cov = source_cov[2::3]
+        # keep only the selected components
+        if pick_ori == 'normal':
+            eigen_leads = eigen_leads[2::3]
+            source_cov = source_cov[2::3]
+        elif pick_ori == 'tangential1':
+            eigen_leads = eigen_leads[0::3]
+            source_cov = source_cov[0::3]
+        elif pick_ori == 'tangential2':
+            eigen_leads = eigen_leads[1::3]
+            source_cov = source_cov[1::3]
+        else:
+            raise ValueError('invalid pick_ori')
 
     trans = inv['reginv'][:, None] * reduce(np.dot,
                                             [inv['eigen_fields']['data'],
@@ -731,9 +740,8 @@ def _check_ori(pick_ori, pick_normal):
                       'or "normal".')
         pick_ori = None
 
-    if pick_ori not in [None, "normal"]:
-        raise ValueError('The pick_ori parameter should now be None or '
-                         '"normal".')
+    if pick_ori not in [None, "normal", "tangential1", "tangential2"]:
+        raise ValueError('Invalid "pick_ori": %s' % pick_ori)
     return pick_ori
 
 
